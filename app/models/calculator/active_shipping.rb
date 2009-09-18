@@ -16,7 +16,7 @@ class Calculator::ActiveShipping < Calculator
                                :city => Spree::ActiveShipping::Config[:origin_city],
                                :state => Spree::ActiveShipping::Config[:origin_state],
                                :zip => Spree::ActiveShipping::Config[:origin_zip])
-
+    
     destination = Location.new(:country => order.ship_address.country.iso,
                                :state => order.ship_address.state.abbr,
                                :city => order.ship_address.city,
