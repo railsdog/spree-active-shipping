@@ -26,7 +26,6 @@ class Calculator::ActiveShipping < Calculator
     rates = Rails.cache.fetch(cache_key(line_items)) do
       rates = retrieve_rates(origin, destination, packages(order))
     end
-    
     return nil if rates.empty?
     rate = rates[self.description].to_f + (Spree::ActiveShipping::Config[:handling_fee].to_f || 0.0)
     return nil unless rate
@@ -35,7 +34,7 @@ class Calculator::ActiveShipping < Calculator
   end
   
   
-  def timing(line_items)
+  def timing(line_items, options={})
     order = line_items.first.order
     origin      = Location.new(:country => Spree::ActiveShipping::Config[:origin_country],
                                :city => Spree::ActiveShipping::Config[:origin_city],
@@ -47,11 +46,10 @@ class Calculator::ActiveShipping < Calculator
                               :city => addr.city,
                               :zip => addr.zipcode)
     timings = Rails.cache.fetch(cache_key(line_items)+"-timings") do
-      timings = retrieve_timings(origin, destination, packages(order))
+      timings = retrieve_timings(origin, destination, packages(order), options)
     end
     return nil if timings.nil? || !timings.is_a?(Hash) || timings.empty?
     return timings[self.description]
-    
   end
   
   private
@@ -74,10 +72,10 @@ class Calculator::ActiveShipping < Calculator
   end
   
   
-  def retrieve_timings(origin, destination, packages)
+  def retrieve_timings(origin, destination, packages, options = {})
     begin
       if carrier.respond_to?(:find_time_in_transit)
-        response = carrier.find_time_in_transit(origin, destination, packages)
+        response = carrier.find_time_in_transit(origin, destination, packages, options)
         return response
       end
     rescue ActiveMerchant::Shipping::ResponseError => re

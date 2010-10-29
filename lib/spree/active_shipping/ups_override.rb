@@ -140,8 +140,8 @@ module Spree
                 invoice_line_total << XmlNode.new("CurrencyCode","USD")
                 invoice_line_total << XmlNode.new("MonetaryValue","50")
               end
-              
-              root_node << XmlNode.new("PickupDate",Date.today.strftime("%Y%m%d"))
+              thedate = options[:date].nil? ? Time.now : options[:date]
+              root_node << XmlNode.new("PickupDate",thedate.strftime("%Y%m%d"))
               
               
             end
