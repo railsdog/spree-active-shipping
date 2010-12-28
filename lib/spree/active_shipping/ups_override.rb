@@ -102,13 +102,13 @@ module Spree
           def build_time_in_transit_request(origin, destination, packages, options={})
             packages = Array(packages)
             xml_request = XmlNode.new('TimeInTransitRequest') do |root_node|
-              root_node << XmlNode.new('Request') do |request|
+                root_node << XmlNode.new('Request') do |request|
                 request << XmlNode.new('TransactionReference') do |transaction_reference|
-                  transaction_reference << XmlNode.new('CustomerContext', 'Time in Transit')
-                  transaction_reference << XmlNode.new('XpciVersion', '1.0002')
-                end
-                request << XmlNode.new('RequestAction', 'TimeInTransit')
-              end
+                transaction_reference << XmlNode.new('CustomerContext', 'Time in Transit')
+                transaction_reference << XmlNode.new('XpciVersion', '1.0002')
+             end
+             request << XmlNode.new('RequestAction', 'TimeInTransit')
+             end
               root_node << XmlNode.new('TransitFrom') do |transit_from|
                 transit_from << XmlNode.new('AddressArtifactFormat') do |address_artifact_format|
                   address_artifact_format << XmlNode.new('PoliticalDivision2',origin.city)
@@ -194,9 +194,62 @@ module Spree
             packages = Array(packages)
             access_request = build_access_request
             rate_request = build_rate_request(origin, destination, packages, options)
-            response = commit(:rates, save_request(access_request + rate_request), (options[:test] || false))
+            response = commit(:rates, save_request( access_request + rate_request), (options[:test] || false))
             parse_rate_response(origin, destination, packages, response, options)
           end
+
+          def find_address_request(zip,options={})
+            options = @options.merge(options)
+            address_request = build_address_request(zip)
+            access_request = build_access_request
+            print "<?xml version=\"1.0\"?>"+access_request + "<?xml version=\"1.0\"?>" + address_request
+            response = ssl_post("https://www.ups.com/ups.app/xml/AV", "<?xml version=\"1.0\"?>"+ access_request + "<?xml version=\"1.0\"?>" + address_request)
+            parse_address_request(response)
+          end
+          
+          def parse_address_request(response)
+            xml = REXML::Document.new(response)
+            success = response_success?(xml)
+            message = response_message(xml)
+            results = []
+            if success
+              city_options = {}              
+              xml.elements.each('/*/AddressValidationResult') do |address_validation_result|
+                rank    = address_validation_result.get_text('Rank').to_s
+                quality    = address_validation_result.get_text('Quality').to_s
+                city    = address_validation_result.get_text('Address/City').to_s
+                state    = address_validation_result.get_text('Address/StateProvinceCode').to_s
+                zip_low = address_validation_result.get_text('PostalCodeLowEnd').to_s
+                zip_high = address_validation_result.get_text('PostalCodeHighEnd').to_s
+                results << {:rank => rank, :quality => quality, :city => city,:state => state, :zip_low => zip_low,:zip_high => zip_high}
+              end
+            end
+            return results
+          end
+          
+          
+          def build_address_request(zip)
+            xml_request = XmlNode.new('AddressValidationRequest') do |root_node|
+              root_node << XmlNode.new('Request') do |request|
+                request << XmlNode.new('TransactionReference') do |transaction_reference|
+                  transaction_reference << XmlNode.new('CustomerContext', 'Customer Data')
+                  transaction_reference << XmlNode.new('XpciVersion', '1.0001')
+                end
+                request << XmlNode.new('RequestAction', 'AV')
+               end
+
+               root_node << XmlNode.new('Address') do |address|
+                 address << XmlNode.new('City',"")
+                 address << XmlNode.new('StateProvinceCode',"")
+                 address << XmlNode.new('PostalCode',zip)
+               end
+            end
+            xml_request.to_s
+          end
+          
+          
+
+
 
 
           def parse_time_in_transit_response(origin, destination, packages, response, options={})
@@ -235,7 +288,6 @@ module Spree
             end
             return rate_estimates
           end
-
 
 
           def parse_rate_response(origin, destination, packages, response, options={})
