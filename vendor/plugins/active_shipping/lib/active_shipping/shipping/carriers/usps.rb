@@ -315,7 +315,7 @@ module ActiveMerchant
           
           package_node.each_element(service_node) do |service_response_node|
             service_name = service_response_node.get_text(service_name_node).to_s
-            
+            service_name.gsub!(/&amp;lt;sup&amp;gt;&amp;amp;reg;&amp;lt;\/sup&amp;gt;/, '')
             # aggregate specific package rates into a service-centric RateEstimate
             # first package with a given service name will initialize these;
             # later packages with same service will add to them
